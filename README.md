@@ -4,7 +4,7 @@ Multi Head Latent Attention Uses SVD for matrix compression. Our goal it to impl
 
 ### Standard SVD Implementation
 
-See https://github.com/cangokmen/CS599-Randomized-SVD/blob/master/SVD_README.md
+\href{https://github.com/cangokmen/CS599-Randomized-SVD/blob/master/docs/README(SVD).md}{README(SVD).md}
 
 ### How to run?
 
