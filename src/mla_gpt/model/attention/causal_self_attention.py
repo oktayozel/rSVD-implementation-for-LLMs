@@ -21,7 +21,6 @@ class CausalSelfAttention(nn.Module):
         self.dropout = config.dropout
         
         # SVD parameters - separate for Q, K, V
-        # Backwards compatibility: use_svd applies to V only
         self.use_svd_q = getattr(config, 'use_svd_q', False)
         self.use_svd_k = getattr(config, 'use_svd_k', False)
         self.use_svd_v = getattr(config, 'use_svd_v', False) or getattr(config, 'use_svd', False)
@@ -32,6 +31,17 @@ class CausalSelfAttention(nn.Module):
         self.svd_rank_k = getattr(config, 'svd_rank_k', default_rank)
         self.svd_rank_v = getattr(config, 'svd_rank_v', default_rank)
         
+        # SVD type: 'standard' or 'randomized'
+        self.svd_type = getattr(config, 'svd_type', 'standard')
+        
+        # Randomized SVD parameters
+        self.svd_n_oversamples = getattr(config, 'svd_n_oversamples', 10)
+        self.svd_n_power_iter = getattr(config, 'svd_n_power_iter', 2)
+        
+        # Initialize SVD compressors if needed
+        if self.use_svd_q or self.use_svd_k or self.use_svd_v:
+            self._init_svd_compressors()
+        
         # flash attention make GPU go brrrrr but support is only in PyTorch >= 2.0
         self.flash = hasattr(torch.nn.functional, 'scaled_dot_product_attention')
         if not self.flash:
@@ -40,9 +50,35 @@ class CausalSelfAttention(nn.Module):
             self.register_buffer("bias", torch.tril(torch.ones(config.block_size, config.block_size))
                                         .view(1, 1, config.block_size, config.block_size))
 
+    def _init_svd_compressors(self):
+        """Initialize SVD compression modules."""
+        if self.svd_type == 'randomized':
+            from ..compression.randomized_svd_compression import RandomizedSVDCompression
+            
+            if self.use_svd_q and self.svd_rank_q is not None:
+                self.svd_compressor_q = RandomizedSVDCompression(
+                    rank=self.svd_rank_q,
+                    n_oversamples=self.svd_n_oversamples,
+                    n_power_iter=self.svd_n_power_iter
+                )
+            
+            if self.use_svd_k and self.svd_rank_k is not None:
+                self.svd_compressor_k = RandomizedSVDCompression(
+                    rank=self.svd_rank_k,
+                    n_oversamples=self.svd_n_oversamples,
+                    n_power_iter=self.svd_n_power_iter
+                )
+            
+            if self.use_svd_v and self.svd_rank_v is not None:
+                self.svd_compressor_v = RandomizedSVDCompression(
+                    rank=self.svd_rank_v,
+                    n_oversamples=self.svd_n_oversamples,
+                    n_power_iter=self.svd_n_power_iter
+                )
+
     def apply_svd(self, matrix, use_svd, svd_rank, matrix_name=""):
         """
-        Apply SVD to any Q, K, or V matrix
+        Apply SVD to any Q, K, or V matrix.
         
         Args:
             matrix: Tensor of shape (B, nh, T, hs)
@@ -56,7 +92,17 @@ class CausalSelfAttention(nn.Module):
         if not use_svd:
             return matrix
         
-        return self._standard_svd_reconstruction(matrix, svd_rank)
+        if self.svd_type == 'randomized':
+            # Use pre-initialized compressor
+            compressor_attr = f'svd_compressor_{matrix_name.lower()}'
+            if hasattr(self, compressor_attr):
+                compressor = getattr(self, compressor_attr)
+                return compressor.compress(matrix)
+            else:
+                # Fallback to standard SVD if compressor not initialized
+                return self._standard_svd_reconstruction(matrix, svd_rank)
+        else:
+            return self._standard_svd_reconstruction(matrix, svd_rank)
 
     def _standard_svd_reconstruction(self, matrix, rank):
         """Standard SVD reconstruction using torch.linalg.svd"""
@@ -80,7 +126,6 @@ class CausalSelfAttention(nn.Module):
                 r = S.shape[0]  # Full rank reconstruction
             
             # Reconstruct with reduced rank
-            # Matrix_approx = U[:, :r] @ diag(S[:r]) @ Vh[:r, :]
             S_diag = torch.diag(S[:r])
             matrix_reconstructed[i] = U[:, :r] @ S_diag @ Vh[:r, :]
         

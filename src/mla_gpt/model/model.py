@@ -89,6 +89,13 @@ class GPTConfig:
     svd_rank_k: int = None          # Rank for K (uses svd_rank if None)
     svd_rank_v: int = None          # Rank for V (uses svd_rank if None)
 
+    # SVD type: 'standard' or 'randomized'
+    svd_type: str = 'standard'
+    
+    # Randomized SVD parameters
+    svd_n_oversamples: int = 10  # Additional samples for accuracy
+    svd_n_power_iter: int = 2     # Power iterations for improved accuracy
+
     # MLA Configuration
     use_mla: bool = False           # Enable Multi-Head Latent Attention
     kv_latent_dim: int = None       # KV compression dim (default: n_embd // 4)
