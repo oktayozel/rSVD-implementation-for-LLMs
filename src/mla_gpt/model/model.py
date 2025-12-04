@@ -11,9 +11,14 @@ import math
 import inspect
 from dataclasses import dataclass
 
+
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
+
+from mla_gpt.model.attention.causal_self_attention import CausalSelfAttention
+# for MLA
+from mla_gpt.model.attention.multihead_latent_attention import MultiHeadLatentAttention
 
 class LayerNorm(nn.Module):
     """ LayerNorm but with an optional bias. PyTorch doesn't support simply bias=False """
@@ -48,7 +53,11 @@ class Block(nn.Module):
     def __init__(self, config):
         super().__init__()
         self.ln_1 = LayerNorm(config.n_embd, bias=config.bias)
-        self.attn = CausalSelfAttention(config)
+        # Choose attention type based on config
+        if getattr(config, 'use_mla', False):
+            self.attn = MultiHeadLatentAttention(config)
+        else:
+            self.attn = CausalSelfAttention(config)
         self.ln_2 = LayerNorm(config.n_embd, bias=config.bias)
         self.mlp = MLP(config)
 
@@ -71,6 +80,13 @@ class GPTConfig:
     use_svd: bool = False # True: apply SVD to value matrices. False: use original values
     svd_rank: int = None # Rank for SVD approximation. If None, use full rank
 
+    # MLA Configuration
+    use_mla: bool = False           # Enable Multi-Head Latent Attention
+    kv_latent_dim: int = None       # KV compression dim (default: n_embd // 4)
+    q_latent_dim: int = None        # Query compression dim (default: n_embd // 2)
+    use_rope: bool = False          # Enable decoupled RoPE
+    rope_dim: int = None            # RoPE dimension (default: head_size // 2)
+    
 class GPT(nn.Module):
 
     def __init__(self, config):

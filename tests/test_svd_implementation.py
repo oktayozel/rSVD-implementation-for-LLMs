@@ -5,7 +5,13 @@ This test compares outputs with and without SVD to ensure they are different.
 """
 
 import torch
-from model import GPT, GPTConfig
+import sys
+import os
+
+# Add the src directory to the path
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+
+from mla_gpt.model.model import GPT, GPTConfig
 
 def test_svd_effect():
     """Test that SVD actually changes the model output"""
