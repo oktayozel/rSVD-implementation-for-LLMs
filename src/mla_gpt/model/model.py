@@ -76,9 +76,18 @@ class GPTConfig:
     dropout: float = 0.0
     bias: bool = True # True: bias in Linears and LayerNorms, like GPT-2. False: a bit better and faster
     
-    # SVD Configuration
-    use_svd: bool = False # True: apply SVD to value matrices. False: use original values
-    svd_rank: int = None # Rank for SVD approximation. If None, use full rank
+    # SVD Configuration - Separate controls for Q, K, V
+    use_svd: bool = False           # Master toggle (applies to V only for backwards compatibility)
+    svd_rank: int = None            # Default rank for all matrices
+    
+    # Individual SVD controls
+    use_svd_q: bool = False         # Apply SVD to Query matrices
+    use_svd_k: bool = False         # Apply SVD to Key matrices  
+    use_svd_v: bool = False         # Apply SVD to Value matrices (overrides use_svd)
+    
+    svd_rank_q: int = None          # Rank for Q (uses svd_rank if None)
+    svd_rank_k: int = None          # Rank for K (uses svd_rank if None)
+    svd_rank_v: int = None          # Rank for V (uses svd_rank if None)
 
     # MLA Configuration
     use_mla: bool = False           # Enable Multi-Head Latent Attention

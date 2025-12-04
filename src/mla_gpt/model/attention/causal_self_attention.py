@@ -1,9 +1,8 @@
 import math
-from dataclasses import dataclass
-
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
+
 
 class CausalSelfAttention(nn.Module):
 
@@ -21,9 +20,17 @@ class CausalSelfAttention(nn.Module):
         self.n_embd = config.n_embd
         self.dropout = config.dropout
         
-        # SVD parameters
-        self.use_svd = getattr(config, 'use_svd', False)  # Disabled by default
-        self.svd_rank = getattr(config, 'svd_rank', None)  # If None, use full rank
+        # SVD parameters - separate for Q, K, V
+        # Backwards compatibility: use_svd applies to V only
+        self.use_svd_q = getattr(config, 'use_svd_q', False)
+        self.use_svd_k = getattr(config, 'use_svd_k', False)
+        self.use_svd_v = getattr(config, 'use_svd_v', False) or getattr(config, 'use_svd', False)
+        
+        # Ranks for each matrix
+        default_rank = getattr(config, 'svd_rank', None)
+        self.svd_rank_q = getattr(config, 'svd_rank_q', default_rank)
+        self.svd_rank_k = getattr(config, 'svd_rank_k', default_rank)
+        self.svd_rank_v = getattr(config, 'svd_rank_v', default_rank)
         
         # flash attention make GPU go brrrrr but support is only in PyTorch >= 2.0
         self.flash = hasattr(torch.nn.functional, 'scaled_dot_product_attention')
@@ -33,23 +40,25 @@ class CausalSelfAttention(nn.Module):
             self.register_buffer("bias", torch.tril(torch.ones(config.block_size, config.block_size))
                                         .view(1, 1, config.block_size, config.block_size))
 
-    def apply_svd_to_v(self, v):
+    def apply_svd(self, matrix, use_svd, svd_rank, matrix_name=""):
         """
-        Apply SVD to the V (values) matrix using torch.linalg.svd
+        Apply SVD to any Q, K, or V matrix
         
         Args:
-            v: Tensor of shape (B, nh, T, hs) where
-               B = batch size, nh = number of heads, T = sequence length, hs = head size
-        
+            matrix: Tensor of shape (B, nh, T, hs)
+            use_svd: Whether to apply SVD to this matrix
+            svd_rank: Rank to use for this matrix
+            matrix_name: Name for logging (Q/K/V)
+            
         Returns:
-            Reconstructed V matrix after SVD decomposition
+            Reconstructed matrix after SVD decomposition (or original if SVD disabled)
         """
-        if not self.use_svd:
-            return v
+        if not use_svd:
+            return matrix
         
-        return self._standard_svd_reconstruction(v)
-    
-    def _standard_svd_reconstruction(self, matrix):
+        return self._standard_svd_reconstruction(matrix, svd_rank)
+
+    def _standard_svd_reconstruction(self, matrix, rank):
         """Standard SVD reconstruction using torch.linalg.svd"""
         B, nh, T, hs = matrix.shape
         
@@ -65,15 +74,15 @@ class CausalSelfAttention(nn.Module):
             U, S, Vh = torch.linalg.svd(matrix_reshaped[i], full_matrices=False)
             
             # Determine rank for reconstruction
-            if self.svd_rank is not None:
-                rank = min(self.svd_rank, S.shape[0])
+            if rank is not None:
+                r = min(rank, S.shape[0])
             else:
-                rank = S.shape[0]  # Full rank reconstruction
+                r = S.shape[0]  # Full rank reconstruction
             
             # Reconstruct with reduced rank
-            # Matrix_approx = U[:, :rank] @ diag(S[:rank]) @ Vh[:rank, :]
-            S_diag = torch.diag(S[:rank])
-            matrix_reconstructed[i] = U[:, :rank] @ S_diag @ Vh[:rank, :]
+            # Matrix_approx = U[:, :r] @ diag(S[:r]) @ Vh[:r, :]
+            S_diag = torch.diag(S[:r])
+            matrix_reconstructed[i] = U[:, :r] @ S_diag @ Vh[:r, :]
         
         # Reshape back to original dimensions
         return matrix_reconstructed.reshape(B, nh, T, hs)
@@ -87,8 +96,10 @@ class CausalSelfAttention(nn.Module):
         q = q.view(B, T, self.n_head, C // self.n_head).transpose(1, 2) # (B, nh, T, hs)
         v = v.view(B, T, self.n_head, C // self.n_head).transpose(1, 2) # (B, nh, T, hs)
 
-        # Apply SVD to V (values) matrix if enabled
-        v = self.apply_svd_to_v(v)
+        # Apply SVD to Q, K, V matrices independently
+        q = self.apply_svd(q, self.use_svd_q, self.svd_rank_q, "Q")
+        k = self.apply_svd(k, self.use_svd_k, self.svd_rank_k, "K")
+        v = self.apply_svd(v, self.use_svd_v, self.svd_rank_v, "V")
 
         # causal self-attention; Self-attend: (B, nh, T, hs) x (B, nh, hs, T) -> (B, nh, T, T)
         if self.flash:
