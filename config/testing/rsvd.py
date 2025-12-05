@@ -6,7 +6,7 @@ eval_iters = 200
 log_interval = 100
 always_save_checkpoint = False
 
-dataset = 'wikitext-2'
+dataset = 'wikitext-103'
 
 batch_size = 32
 gradient_accumulation_steps = 8
