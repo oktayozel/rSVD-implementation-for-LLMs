@@ -6,7 +6,8 @@ eval_iters = 200
 log_interval = 100
 always_save_checkpoint = False
 
-dataset = 'shakespeare_char'
+dataset = 'wikitext-2'
+
 batch_size = 32
 gradient_accumulation_steps = 8
 block_size = 512
