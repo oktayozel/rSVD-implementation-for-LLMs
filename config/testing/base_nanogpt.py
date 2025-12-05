@@ -1,5 +1,5 @@
 # Medium Base model (no MLA, no SVD) - ~124M params
-out_dir = 'out-shakespeare-char-base-medium'
+out_dir = 'out-shakespeare-char-base-nanogpt'
 
 eval_interval = 500
 eval_iters = 200

@@ -1,5 +1,5 @@
 # Medium MLA model (MLA's built-in latent compression) - ~124M params
-out_dir = 'out-shakespeare-char-mla-medium'
+out_dir = 'out-shakespeare-char-mla'
 
 eval_interval = 500
 eval_iters = 200

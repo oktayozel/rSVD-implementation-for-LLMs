@@ -1,5 +1,5 @@
 # Medium Standard Attention + Standard SVD on Q, K, V - ~124M params
-out_dir = 'out-shakespeare-char-std-svd-medium'
+out_dir = 'out-shakespeare-char-svd'
 
 eval_interval = 500
 eval_iters = 200
