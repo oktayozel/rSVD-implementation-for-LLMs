@@ -14,9 +14,14 @@ Key idea:
 """
 
 import math
+import time
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
+from mla_gpt.model.compression.svd_compression import SVDCompression
+from mla_gpt.model.compression.randomized_svd_compression import RandomizedSVDCompression
+from mla_gpt.model.compression.svd_compression import SVDCompression
+from mla_gpt.model.compression.randomized_svd_compression import RandomizedSVDCompression
 
 
 class MultiHeadLatentAttention(nn.Module):
@@ -39,6 +44,10 @@ class MultiHeadLatentAttention(nn.Module):
             - q_latent_dim: Dimension of the Q latent space (optional, defaults to n_embd // 2)
             - use_rope: Whether to use rotary position embeddings for a portion of head dim (optional)
             - rope_dim: Dimension for RoPE if used (optional, defaults to head_size // 2)
+            - kv_compression_type: Type of compression for KV projection ('none', 'svd', 'randomized_svd')
+            - kv_compression_rank: Rank for KV projection compression
+            - svd_n_oversamples: Oversamples for randomized SVD (default: 10)
+            - svd_n_power_iter: Power iterations for randomized SVD (default: 2)
     """
     
     def __init__(self, config):
@@ -71,8 +80,19 @@ class MultiHeadLatentAttention(nn.Module):
             self.q_rope_proj = nn.Linear(config.n_embd, self.n_head * self.rope_dim, bias=config.bias)
         
         # ============ KV Path (Joint Compression) ============
+        # Compression settings
+        self.kv_compression_type = getattr(config, 'kv_compression_type', 'none')
+        self.kv_compression_rank = getattr(config, 'kv_compression_rank', None)
+        self.compression_time = 0.0  # Track compression time
+        self.reconstruction_error = 0.0  # Track reconstruction error
+        
         # Down-projection: x -> kv_latent (this is what gets cached!)
         self.kv_down_proj = nn.Linear(config.n_embd, self.kv_latent_dim, bias=config.bias)
+        
+        # Apply SVD compression to kv_down_proj weights if requested
+        if self.kv_compression_type != 'none' and self.kv_compression_rank is not None:
+            self._apply_kv_compression(config)
+        
         # Up-projections: kv_latent -> keys, values
         self.k_up_proj = nn.Linear(self.kv_latent_dim, config.n_embd, bias=config.bias)
         self.v_up_proj = nn.Linear(self.kv_latent_dim, config.n_embd, bias=config.bias)
@@ -114,6 +134,42 @@ class MultiHeadLatentAttention(nn.Module):
         emb = torch.cat([freqs, freqs], dim=-1)
         self.register_buffer("cos_cached", emb.cos().view(1, 1, max_seq_len, self.rope_dim))
         self.register_buffer("sin_cached", emb.sin().view(1, 1, max_seq_len, self.rope_dim))
+    
+    def _apply_kv_compression(self, config):
+        """Apply SVD compression to KV down-projection weights."""
+        start_time = time.time()
+        
+        # Get original weight matrix
+        original_weight = self.kv_down_proj.weight.data.clone()
+        
+        # Create compression object
+        if self.kv_compression_type == 'svd':
+            compressor = SVDCompression(
+                rank=self.kv_compression_rank,
+                compression_type='standard'
+            )
+        elif self.kv_compression_type == 'randomized_svd':
+            compressor = RandomizedSVDCompression(
+                rank=self.kv_compression_rank,
+                n_oversamples=getattr(config, 'svd_n_oversamples', 10),
+                n_power_iter=getattr(config, 'svd_n_power_iter', 2)
+            )
+        else:
+            return  # No compression
+        
+        # Apply compression
+        compressed_weight = compressor.compress(original_weight)
+        
+        # Replace weights
+        self.kv_down_proj.weight.data = compressed_weight
+        
+        # Track metrics
+        self.compression_time = time.time() - start_time
+        self.reconstruction_error = torch.norm(original_weight - compressed_weight).item() / torch.norm(original_weight).item()
+        
+        print(f"  KV compression: {self.kv_compression_type}, rank={self.kv_compression_rank}")
+        print(f"  Compression time: {self.compression_time:.4f}s")
+        print(f"  Reconstruction error: {self.reconstruction_error:.6f}")
     
     def _apply_rope(self, x, seq_len):
         """Apply rotary position embeddings to x."""

@@ -1,0 +1,4 @@
+dataset,name,description,model_params,train_loss,val_loss,train_ppl,val_ppl,train_tokens_per_sec,inference_tokens_per_sec,forward_memory_mb,backward_memory_mb,total_memory_mb,total_training_time
+shakespeare_char,mla_baseline_small,Small MLA without KV compression (baseline),7144576,2.516561269760132,2.4732120704650877,11.54843357542216,11.665403636238143,7490.4107685169565,85945.58464453876,0.0,0.0,0.0,166.09268498420715
+shakespeare_char,mla_svd_rank16,MLA with standard SVD compression (rank 16) on KV projection,7144576,2.4414753913879395,2.4529035472869873,11.361823477630672,11.524534164360437,7501.568479004103,85094.18474395272,0.0,0.0,0.0,165.90646314620972
+shakespeare_char,mla_rsvd_rank16,MLA with randomized SVD compression (rank 16) on KV projection,7144576,2.412048816680908,2.4451664161682127,11.347991259118283,11.623022319529015,7364.561760407932,91932.11518250643,0.0,0.0,0.0,168.83616399765015
