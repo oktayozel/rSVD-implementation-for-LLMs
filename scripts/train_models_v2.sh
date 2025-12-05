@@ -1,31 +1,30 @@
 #!/bin/bash
+# CPU training script
 
-# Model comparison script for WikiText-103 dataset
-# Compares: Base (350M), MLA+SVD (350M), MLA+rSVD (350M)
-# Goal: Demonstrate rSVD speed advantage
+# Set number of threads (match your core count)
+export OMP_NUM_THREADS=32
+export MKL_NUM_THREADS=32
+export NUMEXPR_NUM_THREADS=32
 
-set -e
+# Optimal for different CPU counts:
+# 4 cores:  OMP_NUM_THREADS=4
+# 8 cores:  OMP_NUM_THREADS=8
+# 16 cores: OMP_NUM_THREADS=16
+# 32 cores: OMP_NUM_THREADS=32
+# 64 cores: OMP_NUM_THREADS=64
 
-echo "=========================================="
-echo "WikiText-103 Model Comparison"
-echo "=========================================="
-echo "GPU: $(nvidia-smi --query-gpu=name --format=csv,noheader -i 0)"
-echo "Date: $(date)"
+echo "Using $OMP_NUM_THREADS CPU threads"
+echo "CPU info:"
+lscpu | grep -E "CPU\(s\)|Thread|Core|Socket"
 echo ""
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 TRAIN_PY="${REPO_ROOT}/src/mla_gpt/cli/train.py"
-
 LOG_DIR="${REPO_ROOT}/logs"
+
 mkdir -p "$LOG_DIR"
 
-if [[ ! -f "$TRAIN_PY" ]]; then
-  echo "Error: train.py not found at: $TRAIN_PY"
-  exit 1
-fi
-
-# Function to train and time a model
 train_model() {
     local config=$1
     local name=$2
@@ -34,13 +33,11 @@ train_model() {
     echo "=========================================="
     echo "Training: $name"
     echo "Config: $config"
-    echo "Log: $log_file"
     echo "=========================================="
     
     local start_time=$(date +%s)
     
     cd "$REPO_ROOT"
-    
     python -u "$TRAIN_PY" "$config" 2>&1 | tee "$log_file"
     
     local end_time=$(date +%s)
@@ -52,35 +49,22 @@ train_model() {
     echo "Training completed in ${duration_min}m ${duration_sec}s" | tee -a "$log_file"
     echo "" | tee -a "$log_file"
     
-    echo "$name: ${duration_min}m ${duration_sec}s" >> "${LOG_DIR}/timing_summary_v2.txt"
+    echo "$name: ${duration_min}m ${duration_sec}s" >> "${LOG_DIR}/cpu_timing_summary.txt"
 }
 
-# Clear previous timing summary
-echo "WikiText-103 Training Time Summary" > "${LOG_DIR}/timing_summary_v2.txt"
-echo "===================================" >> "${LOG_DIR}/timing_summary_v2.txt"
-echo "" >> "${LOG_DIR}/timing_summary_v2.txt"
+# Clear timing summary
+echo "CPU Training - rSVD Speedup Demo" > "${LOG_DIR}/cpu_timing_summary.txt"
+echo "CPU Cores: $OMP_NUM_THREADS" >> "${LOG_DIR}/cpu_timing_summary.txt"
+echo "================================" >> "${LOG_DIR}/cpu_timing_summary.txt"
+echo "" >> "${LOG_DIR}/cpu_timing_summary.txt"
 
-# Train models sequentially
-train_model "${REPO_ROOT}/config/testing-v2/base_nanogpt.py" "base_350M"
-train_model "${REPO_ROOT}/config/testing-v2/mla_svd.py" "mla_svd_350M"
-train_model "${REPO_ROOT}/config/testing-v2/mla_rsvd.py" "mla_rsvd_350M"
+# Train models
+train_model "${REPO_ROOT}/config/testing-v2/cpu_mla_rsvd.py" "cpu_mla_rsvd"
+train_model "${REPO_ROOT}/config/testing-v2/cpu_mla_svd.py" "cpu_mla_svd"
+train_model "${REPO_ROOT}/config/testing-v2/cpu_base.py" "cpu_base"
 
-# Final summary
 echo ""
 echo "=========================================="
-echo "All training completed!"
+echo "CPU Training Complete!"
 echo "=========================================="
-echo ""
-cat "${LOG_DIR}/timing_summary_v2.txt"
-echo ""
-echo "Logs saved in: ${LOG_DIR}/"
-echo "Model checkpoints:"
-echo "  - Base:      ${REPO_ROOT}/out-wikitext103-base/"
-echo "  - MLA+SVD:   ${REPO_ROOT}/out-wikitext103-mla-svd/"
-echo "  - MLA+rSVD:  ${REPO_ROOT}/out-wikitext103-mla-rsvd/"
-echo ""
-echo "Expected Results:"
-echo "  - Base: Slowest training, baseline perplexity"
-echo "  - MLA+SVD: Faster than base (smaller KV cache), but SVD adds overhead"
-echo "  - MLA+rSVD: FASTEST training, similar perplexity to MLA+SVD"
-echo ""
+cat "${LOG_DIR}/cpu_timing_summary.txt"

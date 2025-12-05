@@ -1,51 +1,43 @@
-# Large MLA model with Randomized SVD compression - ~350M params
-# Demonstrates rSVD speed advantage with minimal accuracy loss
+# CPU with MLA + Randomized SVD (FAST)
 
-out_dir = 'out-wikitext103-mla-rsvd'
+out_dir = 'out-wikitext103-cpu-mla-rsvd'
 
-eval_interval = 1000
-eval_iters = 200
-log_interval = 50
+eval_interval = 100
+eval_iters = 50
+log_interval = 10
 always_save_checkpoint = False
 
 dataset = 'wikitext-103'
 
-batch_size = 16
-gradient_accumulation_steps = 4
-block_size = 1024
+batch_size = 4
+gradient_accumulation_steps = 16
+block_size = 512
 
-# Large model config (~350M params)
-n_layer = 24
-n_head = 16
-n_embd = 1024
+n_layer = 12
+n_head = 12
+n_embd = 768
 dropout = 0.1
 
-# Enable MLA with latent compression
+# Enable MLA
 use_mla = True
-kv_latent_dim = 256   # n_embd // 4 = 4x KV cache compression
-q_latent_dim = 512    # n_embd // 2 = 2x query compression
+kv_latent_dim = 192  # 768 // 4
+q_latent_dim = 384   # 768 // 2
 use_rope = False
 
-# Apply RANDOMIZED SVD to KV down-projection
-# This will be FASTER than standard SVD with similar quality
+# RANDOMIZED SVD - much faster on CPU!
 kv_compression_type = 'randomized_svd'
-kv_compression_rank = 128  # Same rank as standard SVD for fair comparison
+kv_compression_rank = 64  # Same compression as standard SVD
 
-# Randomized SVD parameters - tuned for speed/accuracy balance
-svd_n_oversamples = 10     # Additional samples for accuracy
-svd_n_power_iter = 2       # Power iterations (2 is good balance)
-
-# No separate Q/K/V SVD
-use_svd_q = False
-use_svd_k = False
-use_svd_v = False
+# Aggressive rSVD settings for speed
+svd_n_oversamples = 5   # Lower for speed
+svd_n_power_iter = 1    # 1 iteration is enough
 
 learning_rate = 3e-4
-max_iters = 10000
-lr_decay_iters = 10000
+max_iters = 500
+lr_decay_iters = 500
 min_lr = 3e-5
+warmup_iters = 50
 
-warmup_iters = 500
-
-device = 'cuda'
-compile = True
+device = 'cpu'
+compile = False
+dtype = 'bfloat16'
