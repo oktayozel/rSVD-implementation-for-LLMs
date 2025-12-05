@@ -76,32 +76,20 @@ class GPTConfig:
     dropout: float = 0.0
     bias: bool = True # True: bias in Linears and LayerNorms, like GPT-2. False: a bit better and faster
     
-    # SVD Configuration - Separate controls for Q, K, V
-    use_svd: bool = False           # Master toggle (applies to V only for backwards compatibility)
-    svd_rank: int = None            # Default rank for all matrices
-    
-    # Individual SVD controls
-    use_svd_q: bool = False         # Apply SVD to Query matrices
-    use_svd_k: bool = False         # Apply SVD to Key matrices  
-    use_svd_v: bool = False         # Apply SVD to Value matrices (overrides use_svd)
-    
-    svd_rank_q: int = None          # Rank for Q (uses svd_rank if None)
-    svd_rank_k: int = None          # Rank for K (uses svd_rank if None)
-    svd_rank_v: int = None          # Rank for V (uses svd_rank if None)
-
-    # SVD type: 'standard' or 'randomized'
-    svd_type: str = 'standard'
-    
-    # Randomized SVD parameters
-    svd_n_oversamples: int = 10  # Additional samples for accuracy
-    svd_n_power_iter: int = 2     # Power iterations for improved accuracy
-
     # MLA Configuration
     use_mla: bool = False           # Enable Multi-Head Latent Attention
     kv_latent_dim: int = None       # KV compression dim (default: n_embd // 4)
     q_latent_dim: int = None        # Query compression dim (default: n_embd // 2)
     use_rope: bool = False          # Enable decoupled RoPE
     rope_dim: int = None            # RoPE dimension (default: head_size // 2)
+    
+    # MLA KV Compression Configuration (SVD/rSVD on KV down-projection)
+    kv_compression_type: str = 'none'  # 'none', 'svd', or 'randomized_svd'
+    kv_compression_rank: int = None    # Rank for KV projection compression
+    
+    # Randomized SVD parameters
+    svd_n_oversamples: int = 10    # Additional samples for accuracy
+    svd_n_power_iter: int = 2      # Power iterations for improved accuracy
     
 class GPT(nn.Module):
 
