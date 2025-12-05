@@ -34,11 +34,10 @@ svd_n_oversamples = 10   # Accuracy parameter
 svd_n_power_iter = 2     # Accuracy parameter
 
 learning_rate = 3e-4
-max_iters = 2500
-lr_decay_iters = 2500
+max_iters = 3000
+lr_decay_iters = 3000
 min_lr = 3e-5
 
 warmup_iters = 100
 
 device = 'cuda'
-compile = True

@@ -23,11 +23,10 @@ use_svd_k = False
 use_svd_v = False
 
 learning_rate = 3e-4
-max_iters = 2500
-lr_decay_iters = 2500
+max_iters = 3000
+lr_decay_iters = 3000
 min_lr = 3e-5
 
 warmup_iters = 100
 
 device = 'cuda'
-compile = True  # Use PyTorch 2.0 compilation for speed

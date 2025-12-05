@@ -21,13 +21,22 @@ import time
 import math
 import pickle
 from contextlib import nullcontext
+import sys
 
+# Add the src directory to the path
+# train.py is at: src/mla_gpt/cli/train.py
+# We need to add: src (3 levels up)
+_THIS_FILE = os.path.abspath(__file__)
+_SRC_DIR = os.path.abspath(os.path.join(os.path.dirname(_THIS_FILE), '..', '..', '..', 'src'))
+if _SRC_DIR not in sys.path:
+    sys.path.insert(0, _SRC_DIR)
+        
 import numpy as np
 import torch
 from torch.nn.parallel import DistributedDataParallel as DDP
 from torch.distributed import init_process_group, destroy_process_group
 
-from mla_gpt.model import GPTConfig, GPT
+from mla_gpt.model.model import GPTConfig, GPT
 
 
 _THIS_DIR = os.path.dirname(__file__)

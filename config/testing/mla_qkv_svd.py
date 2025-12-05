@@ -32,11 +32,10 @@ svd_rank_v = 16  # ~50% of head_dim
 svd_type = 'standard'
 
 learning_rate = 3e-4
-max_iters = 2500
-lr_decay_iters = 2500
+max_iters = 3000
+lr_decay_iters = 3000
 min_lr = 3e-5
 
 warmup_iters = 100
 
 device = 'cuda'
-compile = True
