@@ -46,7 +46,7 @@ train_model() {
     cd "$REPO_ROOT"
     
     # Train model and capture output
-    python "$TRAIN_PY" "$config" 2>&1 | tee "$log_file"
+    python -u "$TRAIN_PY" "$config" 2>&1 | tee "$log_file"
     
     # Record end time
     local end_time=$(date +%s)
@@ -84,6 +84,7 @@ echo ""
 echo "Logs saved in: ${LOG_DIR}/"
 echo "Model checkpoints:"
 echo "  - Base:      out-shakespeare-char-base/"
-echo "  - MLA+SVD:   out-shakespeare-char-mla-qkv-svd/"
-echo "  - MLA+rSVD:  out-shakespeare-char-mla-qkv-rsvd/"
+  echo "  - MLA:   out-shakespeare-char-mla/"
+  echo "  - SVD:  out-shakespeare-char-svd/"
+  echo "  - rSVD:  out-shakespeare-char-rsvd/"
 echo ""
