@@ -1,5 +1,5 @@
-# Medium Base model (no MLA, no SVD) - ~124M params
-out_dir = 'out-shakespeare-char-base-medium'
+# Medium Standard Attention + Standard SVD on Q, K, V - ~124M params
+out_dir = 'out-shakespeare-char-std-svd-medium'
 
 eval_interval = 500
 eval_iters = 200
@@ -17,11 +17,17 @@ n_head = 12
 n_embd = 768
 dropout = 0.1
 
-# No MLA, no SVD - standard attention
+# Use standard attention (NOT MLA)
 use_mla = False
-use_svd_q = False
-use_svd_k = False
-use_svd_v = False
+
+# Enable standard SVD on Q, K, V
+use_svd_q = True
+use_svd_k = True
+use_svd_v = True
+svd_rank_q = 48  # ~75% of head_dim (64 for 768/12)
+svd_rank_k = 40  # ~62% of head_dim
+svd_rank_v = 32  # ~50% of head_dim
+svd_type = 'standard'
 
 learning_rate = 6e-4
 max_iters = 5000

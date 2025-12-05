@@ -69,8 +69,9 @@ echo "" >> "${LOG_DIR}/timing_summary.txt"
 
 # Train models sequentially (configs resolved relative to repo root)
 train_model "${REPO_ROOT}/config/testing/base_nanogpt.py" "base_nanogpt"
-train_model "${REPO_ROOT}/config/testing/mla_qkv_svd.py" "mla_qkv_svd"
-train_model "${REPO_ROOT}/config/testing/mla_qkv_rsvd.py" "mla_qkv_rsvd"
+train_model "${REPO_ROOT}/config/testing/mla.py" "mla"
+train_model "${REPO_ROOT}/config/testing/svd.py" "svd"
+train_model "${REPO_ROOT}/config/testing/rsvd.py" "rsvd"
 
 # Final summary
 echo ""

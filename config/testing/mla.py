@@ -1,5 +1,5 @@
-# Medium Base model (no MLA, no SVD) - ~124M params
-out_dir = 'out-shakespeare-char-base-medium'
+# Medium MLA model (MLA's built-in latent compression) - ~124M params
+out_dir = 'out-shakespeare-char-mla-medium'
 
 eval_interval = 500
 eval_iters = 200
@@ -17,8 +17,13 @@ n_head = 12
 n_embd = 768
 dropout = 0.1
 
-# No MLA, no SVD - standard attention
-use_mla = False
+# Enable MLA with latent compression
+use_mla = True
+kv_latent_dim = 192  # n_embd // 4 = 4x KV cache compression
+q_latent_dim = 384   # n_embd // 2 = 2x query compression
+use_rope = False
+
+# No SVD - MLA provides its own compression
 use_svd_q = False
 use_svd_k = False
 use_svd_v = False
